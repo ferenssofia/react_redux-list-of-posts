@@ -1,22 +1,6 @@
-import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { Comment } from '../../types/Comment';
 import { client } from '../../utils/fetchClient';
-
-export const fetchComments = createAsyncThunk(
-  'comments/fetch',
-  (postId: number) => {
-    return client.get<Comment[]>(`/comments?postId=${postId}`);
-  },
-);
-
-export const deleteComment = createAsyncThunk(
-  'comments/delete',
-  async (commentId: number) => {
-    await client.delete(`/comments/${commentId}`);
-
-    return commentId;
-  },
-);
 
 export interface CommentsState {
   items: Comment[];
@@ -30,14 +14,30 @@ const initialState: CommentsState = {
   hasError: false,
 };
 
+export const fetchComments = createAsyncThunk(
+  'comments/fetchComments',
+  (postId: number) => client.get<Comment[]>(`/comments?postId=${postId}`),
+);
+
+export const addComment = createAsyncThunk(
+  'comments/addComment',
+  (newCommentData: Omit<Comment, 'id'>) =>
+    client.post<Comment>('/comments', newCommentData),
+);
+
+export const deleteComment = createAsyncThunk(
+  'comments/deleteComment',
+  async (commentId: number) => {
+    await client.delete(`/comments/${commentId}`);
+
+    return commentId;
+  },
+);
+
 const commentsSlice = createSlice({
   name: 'comments',
   initialState,
   reducers: {
-    addComment: (state, action: PayloadAction<Comment>) => ({
-      ...state,
-      items: [...state.items, action.payload],
-    }),
     clearComments: () => initialState,
   },
   extraReducers: builder => {
@@ -57,12 +57,16 @@ const commentsSlice = createSlice({
         loaded: true,
         hasError: true,
       }))
+      .addCase(addComment.fulfilled, (state, action) => ({
+        ...state,
+        items: [...state.items, action.payload],
+      }))
       .addCase(deleteComment.fulfilled, (state, action) => ({
         ...state,
-        items: state.items.filter(item => item.id !== action.payload),
+        items: state.items.filter(comment => comment.id !== action.payload),
       }));
   },
 });
 
-export const { addComment, clearComments } = commentsSlice.actions;
+export const { clearComments } = commentsSlice.actions;
 export default commentsSlice.reducer;
